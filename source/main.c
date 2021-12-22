@@ -10,7 +10,9 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 
+#include <modplayer.h>
 
+OrbisAudioConfig *confAudio;
 OrbisPadConfig *confPad;
 bool flag=true;
 
@@ -28,7 +30,6 @@ enum SCREEN_STATUS
 	
 };
 Vector2 pos;
-
 char path[256];
 int notSelected=1;
 int flagfolder=0;
@@ -269,6 +270,7 @@ void updateController()
 
 void finishApp()
 {
+	orbisAudioFinish();
 	//orbisAudioFinish();
 	//orbisKeyboardFinish();
 	//orbisGlFinish();
@@ -278,19 +280,29 @@ void finishApp()
 }
 
 
-
+OrbisGlobalConf *myConf;
 bool initApp()
 {
 	//orbisNfsInit(NFSEXPORT);
 	//orbisFileInit();
 	int ret=initOrbisLinkApp();
-
 	sceSystemServiceHideSplashScreen();
 	
-	
 	confPad=orbisPadGetConf(); 
-	
-	
+	confAudio=orbisAudioGetConf();
+	ret=sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_AUDIO_OUT);
+    if (ret) 
+    {
+        debugNetPrintf(3,"[ORBISLINK] sceSysmoduleLoadModuleInternal(%s) failed: 0x%08X\n", "SCE_SYSMODULE_INTERNAL_AUDIO_OUT", ret);
+        return -1;
+    }
+    ret=orbisAudioInit();
+    if(ret==1)
+    {
+        ret=orbisAudioInitChannel(ORBISAUDIO_CHANNEL_MAIN,1024,48000,ORBISAUDIO_FORMAT_S16_STEREO);
+        //ret=orbisAudioInitChannel(ORBISAUDIO_CHANNEL_MAIN,512,48000,ORBISAUDIO_FORMAT_S16_MONO);
+
+    }
 	return true;
 }
 void DrawTextXY(Font f,const char *text, int posX, int posY, int fontSize, Color color)     // Draw text (using default font)
@@ -439,6 +451,7 @@ int main(int argc, char *argv[])
 		InitWindow(screenWidth, screenHeight,"raylib [models] example - mesh generation");
 	}
 
+	
 	browserTexture=LoadTexture(BROWSER_BACKGROUND_FILE_PATH);
 	SetTextureFilter(browserTexture, FILTER_BILINEAR);
 	folderTexture=LoadTexture(FOLDER_ICON_PATH);
@@ -460,7 +473,12 @@ int main(int argc, char *argv[])
 
 	SetTargetFPS(60);// Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
-
+	Mod_Init(0);
+	Mod_Load("tetris.mod");
+	
+	Mod_Play();
+	
+	orbisAudioResume(0);
 	while(flag)
 	{
 
@@ -493,7 +511,8 @@ int main(int argc, char *argv[])
 		EndDrawing();
 		//----------------------------------------------------------------------------------
 	}
-
+	orbisAudioResume(0);
+	Mod_End();
 	// De-Initialization
 	//--------------------------------------------------------------------------------------
 	UnloadTexture(browserTexture); // Unload texture
